@@ -3,6 +3,8 @@ from PySide6.QtGui import QPixmap
 from Ui_界面 import Ui_Form
 import glob
 
+import os
+
 class MyWindow(QWidget,Ui_Form):
     def __init__(self):
         super().__init__()
@@ -22,7 +24,7 @@ class MyWindow(QWidget,Ui_Form):
 
     def showImg(self):
         #fname, _ = QFileDialog.getOpenFileNames(self, 'Open Images', '../')
-        fname = glob.glob("C:/Users/ywj/Desktop/graduation design/pictures/*.png")
+        fname = glob.glob("C:/Users/LiShengYu/source/repos/PySide6/pictures/*.png")
         path = fname[0]
         pix = QPixmap(path)
         size = pix.size()
