@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import cv2
 import scipy.io
@@ -8,12 +9,15 @@ def rect_to_polar(img,angle):
     #得到后续要用的img和angle，不用管
     img = np.rot90(img,2)
     img = np.flip(img,1)
-    for i in range(256):
-        if angle[i] < 0:
-            angle[i] = abs(angle[i])       
+    # [修订] angle是一个array，不要使用循环，包括后面的循环大部分都可以改
+    angle[angle < 0] *= -1
+    # for i in range(256):
+    #     if angle[i] < 0:
+    #         angle[i] = abs(angle[i])
     
     #得到输入图像(矩形图)的行和列数
-    height, width = img.shape
+    # [修订] img.shape返回3个值，考虑版本差异
+    height, width = img.shape[0], img.shape[1]
     origin = height
     
     #计算得到输出图像(扇形图)的行数(height_sec)和列数(width_sec)
@@ -25,6 +29,7 @@ def rect_to_polar(img,angle):
     height_sec = int(np.ceil(h1 - x2))
 
     #得到扇形图中每一点的半径和角度
+    # [修订] L是什么，命名应该有意义
     L = np.zeros((height_sec, width_sec))
     angle2 = np.zeros((height_sec, width_sec))
     for i in range(height_sec):
@@ -42,10 +47,10 @@ def rect_to_polar(img,angle):
         angle2[i,int(np.ceil(width_sec / 2)) - 1] = 0
     
     #通过扇形图中每一点的半径和角度，得到扇形图中每一点，映射到矩形图上的行坐标和列坐标
-    index_row = np.zeros((height_sec, width_sec))    #行坐标
-    index_col = np.zeros((height_sec, width_sec))   #列坐标
+    index_row = np.zeros((height_sec, width_sec))       #行坐标
+    index_col = np.zeros((height_sec, width_sec))       #列坐标
     for i in range(height_sec):
-        cnt = 0                           #统计angle2中每一行里小于angle中间波束角度的数量
+        cnt = 0                             #统计angle2中每一行里小于angle中间波束角度的数量
         for j in range(width_sec // 2):     #扇形左半边
             if angle2[i, j] <= angle[0]:    #只有角度在扇面内的点才考虑
                 index_row[i, j] = origin - L[i, j]-1     #矩形图上的行与扇形图上点的半径对应关系
@@ -84,10 +89,16 @@ def rect_to_polar(img,angle):
     polar_img = cv2.remap(img, index_col, index_row,cv2.INTER_LINEAR)
     return polar_img
 
+
 if __name__ == "__main__":
-    img = cv2.imread('tmp.png')   # tmp.png已经推上去了
-    filename = 'beartable.mat'    # beartable.mat 也推上去了
+    filePath = sys.path[0]
+    img = cv2.imread(filePath+r'\pictures\tmp.png')
+    filename = filePath+r'\data\beartable.mat'
     mat = scipy.io.loadmat(filename)
     beartable = mat['beartable']
 
     angle = beartable.flatten()*math.pi/180
+
+    rect_to_polar(img,angle)
+
+    print("结束")
