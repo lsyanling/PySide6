@@ -3,11 +3,35 @@ import sys
 import cv2
 import numpy as np
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QFileDialog, QSizePolicy
-from PySide6.QtGui import QPixmap, QImage
-from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QPixmap, QImage, QFont
+from PySide6.QtCore import QTimer, Qt, QThread, Signal
 from natsort import natsorted
-from Hough_2 import imgEnhance, detect_line, get_distance_and_degree
+from 直线检测测试 import detect_line, get_distance_and_degree
+from 数据读取 import getimgOut
+
+
+class LoadDataTask(QThread):
+    finished = Signal()  # 定义一个信号
+
+    def __init__(self, file_path, output_folder):
+        super().__init__()
+        self.file_path = file_path
+        self.output_folder = output_folder
+
+    def run(self):
+        fid = open(self.file_path, 'rb')
+        frameNum = 1 
+        while True:
+            try:
+                imgOut = getimgOut(fid, frameNum, self.output_folder)
+                output_filename = os.path.join(self.output_folder, f"{frameNum}.png")
+                cv2.imwrite(output_filename, imgOut)
+
+                frameNum += 1
+            except EOFError:
+                self.finished.emit()  # 发送信号
+                break
+
 
 
 class ImageViewer(QWidget):
@@ -32,10 +56,21 @@ class ImageViewer(QWidget):
         self.label_2.setFixedSize(800, 150)  # 设置label_2的大小
         self.label_2.setFont(font)
         self.label_2.setStyleSheet("border: 1px solid black;")  # 给label_2添加黑色边框
-
         left_layout.addWidget(self.label_2)
 
+        self.label_3 = QLabel(self)
+        self.label_3.setFixedSize(800, 30)  # 设置label_3的大小
+        self.label_3.setFont(font)
+        self.label_3.setStyleSheet("border: 1px solid black;")  # 给label_3添加黑色边框
+        left_layout.addWidget(self.label_3)
+
+
+
         button_layout = QHBoxLayout()
+
+        self.btn_load_data = QPushButton('数据读取', self)
+        self.btn_load_data.clicked.connect(self.load_data)
+        button_layout.addWidget(self.btn_load_data)
 
         self.btn_replay = QPushButton('回放', self)
         self.btn_replay.clicked.connect(self.replay)
@@ -54,6 +89,12 @@ class ImageViewer(QWidget):
         main_layout.addLayout(left_layout)
 
         button_right_layout = QVBoxLayout()
+
+        self.label_4 = QLabel(self)
+        self.label_4.setFixedSize(90, 30)  # 设置 label_4 的大小
+        self.label_4.setStyleSheet("border: 1px solid black;")
+        #self.label_4.setFont(font)
+        button_right_layout.addWidget(self.label_4)  # 将 label_4 添加到布局中
 
         self.btn_prev = QPushButton('上一张', self)
         self.btn_prev.clicked.connect(self.prev_image)
@@ -81,6 +122,21 @@ class ImageViewer(QWidget):
         self.timer = QTimer()
         self.timer.timeout.connect(self.show_next_image)
 
+
+    def load_data(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "打开文件")
+        if file_path:
+            output_folder = QFileDialog.getExistingDirectory(self, "选择文件夹")
+            if output_folder:
+                # 创建并启动线程
+                self.load_data_task = LoadDataTask(file_path, output_folder)
+                self.load_data_task.finished.connect(self.on_load_data_finished)  # 连接信号和槽
+                self.load_data_task.start()
+
+    def on_load_data_finished(self):
+        self.label_3.setText("数据读取完成！")
+                        
+
     def replay(self):
         self.image_folder = QFileDialog.getExistingDirectory(self, "选择文件夹")
         if self.image_folder:
@@ -91,7 +147,7 @@ class ImageViewer(QWidget):
 
     def start(self):
         if self.image_folder and self.image_list:
-            self.timer.start(100)
+            self.timer.start(1000)
 
     def pause(self):
         self.timer.stop()
@@ -151,6 +207,7 @@ class ImageViewer(QWidget):
         if self.image_list:
             pixmap = QPixmap(os.path.join(self.image_folder, self.image_list[self.current_image_index]))
             self.label_1.setPixmap(pixmap.scaled(self.label_1.size(), Qt.AspectRatioMode.KeepAspectRatio))
+            self.label_4.setText(f"当前帧：{self.current_image_index + 1}")
 
 
 if __name__ == '__main__':
@@ -158,3 +215,4 @@ if __name__ == '__main__':
     viewer = ImageViewer()
     viewer.show()
     sys.exit(app.exec())
+
